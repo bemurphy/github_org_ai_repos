@@ -75,4 +75,3 @@ class GithubOrgScanner:
         self.report_generator = ReportGenerator()
         self.config = ConfigManager()
 ```
-```
