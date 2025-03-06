@@ -36,6 +36,32 @@ The following environment variables can be configured in your `.env` file:
 
 ## Usage
 
+Running the script directly:
+
+```bash
+# Basic usage
+python github_org_scanner.py
+
+# With runtime flags
+python github_org_scanner.py --min-confidence 3 --max-repositories 20
+```
+
+### Runtime Flags
+
+- `--min-confidence`: Filter repositories by minimum confidence score (0-5)
+  - `0`: Include all repositories (default)
+  - `1`: Definitely not AI-related
+  - `2`: Probably not AI-related
+  - `3`: Possibly AI-related
+  - `4`: Likely AI-related
+  - `5`: Definitely AI-related
+
+- `--max-repositories`: Limit the number of repositories to analyze
+  - Default: Analyze all matching repositories
+  - Example: `--max-repositories 10` will analyze at most 10 repositories
+
+### Using as a Module
+
 ```python
 from github_org_scanner import GithubOrgScanner
 
@@ -55,11 +81,6 @@ for repo in matching_repos:
     print(f"Repository: {repo.name}")
     print(f"Description: {repo.description}")
     print(f"URL: {repo.html_url}")
-```
-
-You can also run the script directly:
-```bash
-python github_org_scanner.py
 ```
 
 This will run the example search on the OpenAI organization. 
