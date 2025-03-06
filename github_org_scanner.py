@@ -64,6 +64,8 @@ class GithubOrgScanner:
     def _generate_analysis_cache_key(self, repo_full_name: str) -> str:
         """
         Generate a unique cache key for repository analysis results.
+        The key includes both the repository name and the LLM model being used,
+        since different models may produce different analyses.
         
         Args:
             repo_full_name (str): Full name of the repository (org/repo)
@@ -71,7 +73,8 @@ class GithubOrgScanner:
         Returns:
             str: Cache key
         """
-        return f"repo_analysis:{hashlib.md5(repo_full_name.encode()).hexdigest()}"
+        key_content = f"{repo_full_name}:{self.llm_model}"
+        return f"repo_analysis:{hashlib.md5(key_content.encode()).hexdigest()}"
 
     def _serialize_repo(self, repo: Repository) -> Dict:
         """
