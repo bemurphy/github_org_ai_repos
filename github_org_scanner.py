@@ -11,6 +11,7 @@ import hashlib
 import memcache
 from dotenv import load_dotenv
 from litellm import completion
+from datetime import datetime
 
 class GithubOrgScanner:
     def __init__(self, github_token: str = None):
@@ -310,6 +311,64 @@ REASON: <your explanation>"""
         print("\nDetailed analysis complete!")
         return detailed_results
 
+    def generate_markdown_report(self, org_name: str, detailed_results: List[Dict]) -> str:
+        """
+        Generate a markdown report of the analysis results.
+        
+        Args:
+            org_name (str): Name of the GitHub organization
+            detailed_results (List[Dict]): List of repository analysis results
+            
+        Returns:
+            str: Markdown formatted report
+        """
+        # Start with report header
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        report = f"""# AI Repository Analysis Report
+## Organization: {org_name}
+Generated on: {now}
+
+This report analyzes repositories for AI/ML/LLM-related content and provides confidence scores.
+
+## Analysis Results
+
+Found {len(detailed_results)} repositories to analyze in detail.
+
+"""
+        
+        # Sort repositories by confidence score (highest to lowest)
+        sorted_results = sorted(detailed_results, key=lambda x: x['confidence_score'], reverse=True)
+        
+        # Add each repository's analysis
+        for repo in sorted_results:
+            # Create status badges
+            status_badge = "🟢 Active" if not repo['is_archived'] else "🔒 Archived"
+            readme_badge = "📘 README" if repo['has_readme'] else "❌ No README"
+            confidence_emoji = {
+                5: "🟣",  # Definitely AI-related
+                4: "🔵",  # Likely AI-related
+                3: "🟡",  # Possibly AI-related
+                2: "🟠",  # Probably not AI-related
+                1: "🔴",  # Definitely not AI-related
+                0: "⚪️"   # Error/Unknown
+            }.get(repo['confidence_score'], "⚪️")
+            
+            report += f"""### [{repo['name']}]({repo['url']})
+{status_badge} | {readme_badge} | {confidence_emoji} Confidence Score: {repo['confidence_score']}/5
+
+**Description:** {repo['description'] or 'No description provided'}
+
+**Topics:** {', '.join(repo['topics']) if repo['topics'] else 'No topics'}
+
+**Analysis:** {repo['reason']}
+
+**Last Updated:** {repo['last_updated']}
+
+---
+"""
+        
+        return report
+
 def main():
     # Example usage - no token needed for public data
     scanner = GithubOrgScanner()
@@ -322,10 +381,30 @@ def main():
     
     # Step 2: Get detailed information including READMEs for matched repositories (limit to 10)
     repos_to_analyze = matching_repos[:10]  # Take first 10 repos
-    print(f"Analyzing first {len(repos_to_analyze)} repositories...")
+    
+    # For testing purposes, try to include documentor repository if we're scanning DataDog
+    if org_name == "DataDog":
+        try:
+            documentor = scanner.github.get_repo("DataDog/documentor")
+            if documentor not in repos_to_analyze:
+                repos_to_analyze.append(documentor)
+                print("Added documentor repository for testing")
+        except:
+            print("Note: documentor repository not found or not accessible")
+    
+    print(f"Analyzing {len(repos_to_analyze)} repositories...")
     detailed_results = scanner.browse_repositories(repos_to_analyze)
     
-    # Output results
+    # Generate markdown report
+    report = scanner.generate_markdown_report(org_name, detailed_results)
+    
+    # Save report to file
+    report_filename = f"ai_repos_report_{org_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    with open(report_filename, 'w') as f:
+        f.write(report)
+    print(f"\nReport generated: {report_filename}")
+    
+    # Also print results to console for immediate viewing
     print(f"\nAnalyzed {len(detailed_results)} repositories in detail:")
     for repo in detailed_results:
         print(f"\nRepository: {repo['name']}")
