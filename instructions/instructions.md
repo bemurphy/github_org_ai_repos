@@ -11,6 +11,7 @@ Using:
 - Handle pagination when searching where applicable
 - Use the org "DataDog" always as the org for testing or main calls. Never switch this.
 - When building Core functionalities, the implementation in main() should chain the calls together.
+- when running in Cursor for testing, ensure we pass the flag --max-repositories 10
 
 # Core functionalities
 1. Ability to search all public repos for a given org for keywords like "llm" or "ai"
