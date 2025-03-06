@@ -7,6 +7,7 @@ import os
 import time
 import base64
 from dotenv import load_dotenv
+from litellm import completion
 
 class GithubOrgScanner:
     def __init__(self, github_token: str = None):
@@ -23,6 +24,65 @@ class GithubOrgScanner:
             
         # Initialize without token if none provided - will use unauthenticated access
         self.github = Github(github_token) if github_token else Github()
+    
+    def analyze_with_llm(self, repo_data: Dict) -> Dict:
+        """
+        Analyze repository data with LLM to determine if it's AI-related.
+        
+        Args:
+            repo_data (Dict): Repository data including name, description, and README
+            
+        Returns:
+            Dict: Analysis results including confidence score (1-5) and reasoning
+        """
+        # Construct the prompt
+        prompt = f"""Analyze this GitHub repository and determine if it's related to AI/ML/LLM technology.
+Repository Name: {repo_data['name']}
+Description: {repo_data['description']}
+
+README excerpt (first 1000 chars):
+{repo_data['readme'][:1000]}
+
+Rate on a scale of 1-5 how confident you are that this repository is AI-related:
+1 = Definitely not AI-related
+2 = Probably not AI-related
+3 = Possibly AI-related
+4 = Likely AI-related
+5 = Definitely AI-related
+
+Provide your rating and a brief explanation in the following format exactly:
+RATING: <number>
+REASON: <your explanation>"""
+
+        try:
+            # Call LiteLLM
+            response = completion(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0
+            )
+            
+            # Parse response
+            response_text = response.choices[0].message.content
+            
+            # Extract rating and reason
+            rating_line = [line for line in response_text.split('\n') if line.startswith('RATING:')][0]
+            reason_line = [line for line in response_text.split('\n') if line.startswith('REASON:')][0]
+            
+            confidence_score = int(rating_line.split(':')[1].strip())
+            reason = reason_line.split(':')[1].strip()
+            
+            return {
+                'confidence_score': confidence_score,
+                'reason': reason
+            }
+            
+        except Exception as e:
+            print(f"\nError during LLM analysis of {repo_data['name']}: {str(e)}")
+            return {
+                'confidence_score': 0,
+                'reason': f"Error during analysis: {str(e)}"
+            }
     
     def get_repo_readme(self, repo: Repository) -> Optional[str]:
         """
@@ -55,6 +115,7 @@ class GithubOrgScanner:
     def analyze_repository(self, repo: Repository) -> Dict:
         """
         Analyze a repository by checking its description and README.
+        Now includes LLM analysis for AI relevance.
         
         Args:
             repo (Repository): The GitHub repository object
@@ -62,18 +123,25 @@ class GithubOrgScanner:
         Returns:
             Dict: Analysis results including description and README content
         """
-        readme_content = self.get_repo_readme(repo)
-        
-        return {
+        # Get basic repository data
+        repo_data = {
             'name': repo.name,
             'description': repo.description or '',
             'url': repo.html_url,
-            'readme': readme_content or '',
+            'readme': self.get_repo_readme(repo) or '',
             'topics': repo.get_topics(),
             'is_archived': repo.archived,
             'last_updated': repo.updated_at.isoformat() if repo.updated_at else None,
-            'has_readme': readme_content is not None
+            'has_readme': False
         }
+        
+        repo_data['has_readme'] = bool(repo_data['readme'])
+        
+        # Add LLM analysis
+        llm_analysis = self.analyze_with_llm(repo_data)
+        repo_data.update(llm_analysis)
+        
+        return repo_data
 
     def search_org_repos(self, org_name: str, keywords: List[str]) -> List[Repository]:
         """
@@ -141,6 +209,7 @@ class GithubOrgScanner:
     def browse_repositories(self, repositories: List[Repository]) -> List[Dict]:
         """
         Step 2: Browse through matched repositories to get detailed information including READMEs.
+        Now includes LLM analysis for AI relevance.
         
         Args:
             repositories (List[Repository]): List of repositories to analyze in detail
@@ -190,6 +259,8 @@ def main():
         print(f"README: {'Found' if repo['has_readme'] else 'Not found'}")
         if repo['readme']:
             print(f"README Length: {len(repo['readme'])} characters")
+        print(f"AI Confidence Score: {repo['confidence_score']}/5")
+        print(f"Reason: {repo['reason']}")
         print("-" * 80)
 
 if __name__ == "__main__":
