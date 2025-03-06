@@ -2,6 +2,20 @@
 
 This tool helps you scan GitHub organizations to find repositories related to AI, machine learning, and similar topics.
 
+## Example Output
+
+The scanner generates detailed markdown reports analyzing repositories for AI-related content. For example, scanning the DataDog organization revealed:
+
+- 3 repositories rated "Definitely AI-related" (5/5):
+  - `documentor`: AI-powered technical documentation improvement
+  - `llm-observability`: LLM observability instrumentation
+  - `MonitoramaEUDesignForAI`: AI-driven monitoring UX prototypes
+
+- 1 repository rated "Possibly AI-related" (3/5):
+  - `sketches-dotnet`: Quantile sketch algorithm implementation
+
+Reports include confidence scores, repository details, and analysis reasoning. [View full sample report](datadog_sample_report.md).
+
 ## Setup
 
 1. Clone this repository
