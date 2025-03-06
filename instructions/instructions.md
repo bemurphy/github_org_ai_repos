@@ -21,3 +21,4 @@ Using:
 4. Output matched repositories in a markdown report, with the repo name, url, description, and confidence score provided
     4.1 Sort the repositories by confidence descending, alpha ascending
     4.2 Allow a runtime flag, --min-confidence, to optionally filter out repositories that are below the minimum confidence level.
+    4.3 Allow an optional runtime flag, --max-repositories, which controls the maximum number of repositories that are individually crawled. It shouldn't impact overall repo search, only individual analisis. No repository list tructation should occur if the flag is not set.

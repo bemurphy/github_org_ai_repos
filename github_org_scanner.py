@@ -481,6 +481,8 @@ def main():
     parser = argparse.ArgumentParser(description='GitHub Organization AI Repository Scanner')
     parser.add_argument('--min-confidence', type=int, choices=range(0, 6), default=0,
                       help='Minimum confidence score (0-5) for including repositories in the report')
+    parser.add_argument('--max-repositories', type=int,
+                      help='Maximum number of repositories to analyze in detail (analyze all if not specified)')
     args = parser.parse_args()
 
     # Example usage - no token needed for public data
@@ -492,11 +494,13 @@ def main():
     matching_repos = scanner.search_org_repos(org_name, keywords)
     print(f"\nFound {len(matching_repos)} potentially relevant repositories")
     
-    # Step 2: Get detailed information including READMEs for matched repositories (limit to 10)
-    repos_to_analyze = matching_repos[:10]  # Take first 10 repos
+    # Step 2: Get detailed information including READMEs for matched repositories
+    # Only limit repositories if max_repositories is explicitly set
+    repos_to_analyze = matching_repos[:args.max_repositories] if args.max_repositories is not None else matching_repos
     
     # For testing purposes, try to include documentor repository if we're scanning DataDog
-    if org_name == "DataDog":
+    # Only add if there's no limit or if we haven't reached the limit
+    if org_name == "DataDog" and (args.max_repositories is None or len(repos_to_analyze) < args.max_repositories):
         try:
             documentor = scanner.github.get_repo("DataDog/documentor")
             if documentor not in repos_to_analyze:
@@ -505,7 +509,12 @@ def main():
         except:
             print("Note: documentor repository not found or not accessible")
     
-    print(f"Analyzing {len(repos_to_analyze)} repositories...")
+    # Show appropriate message based on whether a limit is applied
+    if args.max_repositories is not None:
+        print(f"Analyzing {len(repos_to_analyze)} repositories (max: {args.max_repositories})...")
+    else:
+        print(f"Analyzing all {len(repos_to_analyze)} repositories...")
+    
     detailed_results = scanner.browse_repositories(repos_to_analyze)
     
     # Generate markdown report with minimum confidence filter
