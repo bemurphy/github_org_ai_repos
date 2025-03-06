@@ -2,10 +2,13 @@ from github import Github
 from github.Repository import Repository
 from github.Organization import Organization
 from github.GithubException import RateLimitExceededException
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import os
 import time
 import base64
+import json
+import hashlib
+import memcache
 from dotenv import load_dotenv
 from litellm import completion
 
@@ -24,7 +27,65 @@ class GithubOrgScanner:
             
         # Initialize without token if none provided - will use unauthenticated access
         self.github = Github(github_token) if github_token else Github()
-    
+        
+        # Initialize memcached if enabled
+        self.caching_enabled = os.getenv('ENABLE_CACHING', 'false').lower() == 'true'
+        if self.caching_enabled:
+            self.cache = memcache.Client(['127.0.0.1:11211'], debug=0)
+            print("Caching enabled - using memcached")
+        else:
+            self.cache = None
+            print("Caching disabled")
+
+    def _generate_cache_key(self, org_name: str, keywords: List[str]) -> str:
+        """
+        Generate a unique cache key for the org and keywords combination.
+        
+        Args:
+            org_name (str): Name of the GitHub organization
+            keywords (List[str]): List of keywords to search for
+            
+        Returns:
+            str: Cache key
+        """
+        # Sort keywords to ensure consistent key generation
+        sorted_keywords = sorted(keywords)
+        key_content = f"{org_name}:{','.join(sorted_keywords)}"
+        return f"github_org_scan:{hashlib.md5(key_content.encode()).hexdigest()}"
+
+    def _serialize_repo(self, repo: Repository) -> Dict:
+        """
+        Serialize repository object for caching.
+        
+        Args:
+            repo (Repository): Repository object to serialize
+            
+        Returns:
+            Dict: Serialized repository data
+        """
+        return {
+            'name': repo.name,
+            'description': repo.description,
+            'url': repo.html_url,
+            'topics': repo.get_topics(),
+            'is_archived': repo.archived,
+            'last_updated': repo.updated_at.isoformat() if repo.updated_at else None
+        }
+
+    def _deserialize_repo(self, repo_data: Dict) -> Repository:
+        """
+        Deserialize repository data from cache.
+        
+        Args:
+            repo_data (Dict): Serialized repository data
+            
+        Returns:
+            Repository: Repository object
+        """
+        # For simplicity, we'll refetch the repo from GitHub
+        # This ensures we have a proper Repository object with all methods
+        return self.github.get_repo(f"{repo_data['url'].split('github.com/')[1]}")
+
     def analyze_with_llm(self, repo_data: Dict) -> Dict:
         """
         Analyze repository data with LLM to determine if it's AI-related.
@@ -146,7 +207,7 @@ REASON: <your explanation>"""
     def search_org_repos(self, org_name: str, keywords: List[str]) -> List[Repository]:
         """
         Search for public repositories in an organization that match given keywords.
-        This is step 1: only searching names and descriptions, not fetching READMEs yet.
+        Now with caching support if enabled via ENABLE_CACHING environment variable.
         
         Args:
             org_name (str): Name of the GitHub organization
@@ -155,6 +216,16 @@ REASON: <your explanation>"""
         Returns:
             List[Repository]: List of matching repository objects
         """
+        # Check cache if enabled
+        if self.caching_enabled:
+            cache_key = self._generate_cache_key(org_name, keywords)
+            cached_results = self.cache.get(cache_key)
+            
+            if cached_results:
+                print("Found results in cache")
+                # Deserialize and return cached results
+                return [self._deserialize_repo(repo_data) for repo_data in cached_results]
+        
         try:
             org = self.github.get_organization(org_name)
             matching_repos = []
@@ -194,6 +265,15 @@ REASON: <your explanation>"""
                             break
                 
                 print("\nSearch complete!")
+                
+                # Cache results if enabled
+                if self.caching_enabled:
+                    cache_key = self._generate_cache_key(org_name, keywords)
+                    serialized_repos = [self._serialize_repo(repo) for repo in matching_repos]
+                    # Cache for 1 hour
+                    self.cache.set(cache_key, serialized_repos, time=3600)
+                    print("Results cached for 1 hour")
+                
                 return matching_repos
                 
             except RateLimitExceededException:
@@ -236,7 +316,7 @@ def main():
     org_name = "DataDog"  # Using DataDog as specified in instructions
     keywords = ["llm", "ai", "gpt", "machine learning"]
     
-    # Step 1: Search for repositories by name and description
+    # Step 1: Search for repositories by name and description (now with caching)
     matching_repos = scanner.search_org_repos(org_name, keywords)
     print(f"\nFound {len(matching_repos)} potentially relevant repositories")
     
