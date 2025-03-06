@@ -39,14 +39,17 @@ The following environment variables can be configured in your `.env` file:
 Running the script directly:
 
 ```bash
-# Basic usage
-python github_org_scanner.py
+# Basic usage (required)
+python github_org_scanner.py --org-name openai
 
-# With runtime flags
-python github_org_scanner.py --min-confidence 3 --max-repositories 20
+# With optional runtime flags
+python github_org_scanner.py --org-name datadog --min-confidence 3 --max-repositories 20
 ```
 
 ### Runtime Flags
+
+- `--org-name`: Name of the GitHub organization to scan (required)
+  - Example: `--org-name openai`
 
 - `--min-confidence`: Filter repositories by minimum confidence score (0-5)
   - `0`: Include all repositories (default)

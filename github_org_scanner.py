@@ -490,6 +490,8 @@ Repositories meeting confidence threshold: {len(filtered_results)}
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='GitHub Organization AI Repository Scanner')
+    parser.add_argument('--org-name', type=str, required=True,
+                      help='Name of the GitHub organization to scan')
     parser.add_argument('--min-confidence', type=int, choices=range(0, 6), default=0,
                       help='Minimum confidence score (0-5) for including repositories in the report')
     parser.add_argument('--max-repositories', type=int,
@@ -498,11 +500,10 @@ def main():
 
     # Example usage - no token needed for public data
     scanner = GithubOrgScanner()
-    org_name = "DataDog"  # Using DataDog as specified in instructions
     keywords = ["llm", "ai", "gpt", "machine learning"]
     
     # Step 1: Search for repositories by name and description (now with caching)
-    matching_repos = scanner.search_org_repos(org_name, keywords)
+    matching_repos = scanner.search_org_repos(args.org_name, keywords)
     print(f"\nFound {len(matching_repos)} potentially relevant repositories")
     
     # Step 2: Get detailed information including READMEs for matched repositories
@@ -510,7 +511,7 @@ def main():
     repos_to_analyze = matching_repos[:args.max_repositories] if args.max_repositories is not None else matching_repos
     
     # For testing purposes, try to include documentor repository if we're scanning DataDog
-    if org_name == "DataDog":
+    if args.org_name.lower() == "datadog":
         try:
             documentor = scanner.github.get_repo("DataDog/documentor")
             if documentor not in repos_to_analyze:
@@ -528,13 +529,13 @@ def main():
     detailed_results = scanner.browse_repositories(repos_to_analyze)
     
     # Generate markdown report with minimum confidence filter
-    report = scanner.generate_markdown_report(org_name, detailed_results, args.min_confidence)
+    report = scanner.generate_markdown_report(args.org_name, detailed_results, args.min_confidence)
     
     # Create reports directory if it doesn't exist
     os.makedirs('reports', exist_ok=True)
     
     # Save report to file in reports directory
-    report_filename = os.path.join('reports', f"ai_repos_report_{org_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
+    report_filename = os.path.join('reports', f"ai_repos_report_{args.org_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
     with open(report_filename, 'w') as f:
         f.write(report)
     print(f"\nReport generated: {report_filename}")
