@@ -105,3 +105,6 @@ for repo in matching_repos:
 ```
 
 This will run the example search on the OpenAI organization. 
+
+## TODOS
+- Check that LLMs other than OpenAI are indeed working.
