@@ -499,8 +499,7 @@ def main():
     repos_to_analyze = matching_repos[:args.max_repositories] if args.max_repositories is not None else matching_repos
     
     # For testing purposes, try to include documentor repository if we're scanning DataDog
-    # Only add if there's no limit or if we haven't reached the limit
-    if org_name == "DataDog" and (args.max_repositories is None or len(repos_to_analyze) < args.max_repositories):
+    if org_name == "DataDog":
         try:
             documentor = scanner.github.get_repo("DataDog/documentor")
             if documentor not in repos_to_analyze:
