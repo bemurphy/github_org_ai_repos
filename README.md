@@ -108,3 +108,4 @@ This will run the example search on the OpenAI organization.
 
 ## TODOS
 - Check that LLMs other than OpenAI are indeed working.
+- Extract all the print debug to an abstraction
