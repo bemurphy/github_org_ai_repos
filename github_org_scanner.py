@@ -392,17 +392,58 @@ Generated on: {now}
 
 This report analyzes repositories for AI/ML/LLM-related content and provides confidence scores.
 
-## Analysis Results
+## Analysis Summary
+Total repositories analyzed: {len(detailed_results)}
 
-Found {len(detailed_results)} repositories to analyze in detail.
-
+### Confidence Score Distribution:
 """
+        # Calculate confidence score distribution
+        score_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 0: 0}  # Include 0 for errors
+        for repo in detailed_results:
+            score_distribution[repo['confidence_score']] += 1
         
-        # Sort repositories by confidence score (highest to lowest)
-        sorted_results = sorted(detailed_results, key=lambda x: x['confidence_score'], reverse=True)
+        # Add distribution to report
+        confidence_labels = {
+            5: "🟣 Definitely AI-related",
+            4: "🔵 Likely AI-related",
+            3: "🟡 Possibly AI-related",
+            2: "🟠 Probably not AI-related",
+            1: "🔴 Definitely not AI-related",
+            0: "⚪️ Error/Unknown"
+        }
         
-        # Add each repository's analysis
+        for score in sorted(score_distribution.keys(), reverse=True):
+            if score_distribution[score] > 0:
+                report += f"- {confidence_labels[score]}: {score_distribution[score]} repositories\n"
+        
+        report += "\n## Detailed Analysis\n\n"
+        
+        # Sort repositories by multiple criteria:
+        # 1. Confidence score (high to low)
+        # 2. Active status (active first)
+        # 3. Last updated date (recent first)
+        # 4. Repository name (alphabetical)
+        def sort_key(repo):
+            # Parse last_updated string to datetime, use epoch start if None
+            last_updated = datetime.fromisoformat(repo['last_updated']) if repo['last_updated'] else datetime.min
+            return (
+                -repo['confidence_score'],  # Negative for descending order
+                repo['is_archived'],        # False before True
+                -last_updated.timestamp(),  # Negative for descending order
+                repo['name'].lower()        # Alphabetical by name
+            )
+        
+        sorted_results = sorted(detailed_results, key=sort_key)
+        
+        # Group repositories by confidence score for better organization
+        current_score = None
         for repo in sorted_results:
+            # Add section header when confidence score changes
+            if current_score != repo['confidence_score']:
+                current_score = repo['confidence_score']
+                score_label = confidence_labels[current_score]
+                report += f"\n### {score_label} (Score: {current_score}/5)\n\n"
+            
             # Create status badges
             status_badge = "🟢 Active" if not repo['is_archived'] else "🔒 Archived"
             readme_badge = "📘 README" if repo['has_readme'] else "❌ No README"
@@ -415,16 +456,17 @@ Found {len(detailed_results)} repositories to analyze in detail.
                 0: "⚪️"   # Error/Unknown
             }.get(repo['confidence_score'], "⚪️")
             
-            report += f"""### [{repo['name']}]({repo['url']})
-{status_badge} | {readme_badge} | {confidence_emoji} Confidence Score: {repo['confidence_score']}/5
+            # Format last updated date for better readability
+            last_updated = datetime.fromisoformat(repo['last_updated']).strftime("%Y-%m-%d") if repo['last_updated'] else "Unknown"
+            
+            report += f"""#### [{repo['name']}]({repo['url']})
+{status_badge} | {readme_badge} | Last Updated: {last_updated}
 
 **Description:** {repo['description'] or 'No description provided'}
 
 **Topics:** {', '.join(repo['topics']) if repo['topics'] else 'No topics'}
 
 **Analysis:** {repo['reason']}
-
-**Last Updated:** {repo['last_updated']}
 
 ---
 """

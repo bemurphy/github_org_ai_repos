@@ -19,3 +19,4 @@ Using:
     2.1 Use a python memcached client to allow caching all the repo results. Follow previous caching pattern.
 3. Ability to run repository names, descriptions, and README through an LLM to check if the repository is AI related. Generate a confidence score 1-5.
 4. Output matched repositories in a markdown report, with the repo name, url, description, and confidence score provided
+    4.1 Sort the repositories by confidence descending, alpha ascending
