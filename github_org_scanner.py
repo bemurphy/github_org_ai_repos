@@ -398,8 +398,11 @@ def main():
     # Generate markdown report
     report = scanner.generate_markdown_report(org_name, detailed_results)
     
-    # Save report to file
-    report_filename = f"ai_repos_report_{org_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    # Create reports directory if it doesn't exist
+    os.makedirs('reports', exist_ok=True)
+    
+    # Save report to file in reports directory
+    report_filename = os.path.join('reports', f"ai_repos_report_{org_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md")
     with open(report_filename, 'w') as f:
         f.write(report)
     print(f"\nReport generated: {report_filename}")

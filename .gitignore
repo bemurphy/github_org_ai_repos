@@ -8,4 +8,5 @@ __pycache__/
 env/
 venv/
 ENV/
-.DS_Store 
+.DS_Store
+reports/
