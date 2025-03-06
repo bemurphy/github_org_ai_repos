@@ -16,5 +16,6 @@ Using:
 1. Ability to search all public repos for a given org for keywords like "llm" or "ai"
     1.1 Use a python memcached client to allow caching all the org search results. Caching should be conditional via the env ENABLE_CACHING=true.
 2. Ability to individually browse matches from public repo search and extract the description and README.md files
+    2.1 Use a python memcached client to allow caching all the repo results. Follow previous caching pattern.
 3. Ability to run repository names, descriptions, and README through an LLM to check if the repository is AI related. Generate a confidence score 1-5.
 4. Output matched repositories in a markdown report, with the repo name, url, description, and confidence score provided

@@ -54,6 +54,18 @@ class GithubOrgScanner:
         key_content = f"{org_name}:{','.join(sorted_keywords)}"
         return f"github_org_scan:{hashlib.md5(key_content.encode()).hexdigest()}"
 
+    def _generate_analysis_cache_key(self, repo_full_name: str) -> str:
+        """
+        Generate a unique cache key for repository analysis results.
+        
+        Args:
+            repo_full_name (str): Full name of the repository (org/repo)
+            
+        Returns:
+            str: Cache key
+        """
+        return f"repo_analysis:{hashlib.md5(repo_full_name.encode()).hexdigest()}"
+
     def _serialize_repo(self, repo: Repository) -> Dict:
         """
         Serialize repository object for caching.
@@ -86,6 +98,41 @@ class GithubOrgScanner:
         # For simplicity, we'll refetch the repo from GitHub
         # This ensures we have a proper Repository object with all methods
         return self.github.get_repo(f"{repo_data['url'].split('github.com/')[1]}")
+
+    def _serialize_analysis(self, analysis_result: Dict) -> Dict:
+        """
+        Serialize analysis results for caching.
+        
+        Args:
+            analysis_result (Dict): Analysis results to serialize
+            
+        Returns:
+            Dict: Serialized analysis data
+        """
+        return {
+            'name': analysis_result['name'],
+            'description': analysis_result['description'],
+            'url': analysis_result['url'],
+            'readme': analysis_result['readme'],
+            'topics': analysis_result['topics'],
+            'is_archived': analysis_result['is_archived'],
+            'last_updated': analysis_result['last_updated'],
+            'has_readme': analysis_result['has_readme'],
+            'confidence_score': analysis_result['confidence_score'],
+            'reason': analysis_result['reason']
+        }
+
+    def _deserialize_analysis(self, analysis_data: Dict) -> Dict:
+        """
+        Deserialize analysis data from cache.
+        
+        Args:
+            analysis_data (Dict): Serialized analysis data
+            
+        Returns:
+            Dict: Deserialized analysis results
+        """
+        return analysis_data
 
     def analyze_with_llm(self, repo_data: Dict) -> Dict:
         """
@@ -177,7 +224,7 @@ REASON: <your explanation>"""
     def analyze_repository(self, repo: Repository) -> Dict:
         """
         Analyze a repository by checking its description and README.
-        Now includes LLM analysis for AI relevance.
+        Now includes LLM analysis for AI relevance and caching support.
         
         Args:
             repo (Repository): The GitHub repository object
@@ -185,6 +232,14 @@ REASON: <your explanation>"""
         Returns:
             Dict: Analysis results including description and README content
         """
+        if self.caching_enabled:
+            # Check cache for existing analysis
+            cache_key = self._generate_analysis_cache_key(repo.full_name)
+            cached_analysis = self.cache.get(cache_key)
+            if cached_analysis:
+                print(f"\rFound cached analysis for {repo.name}", end="", flush=True)
+                return self._deserialize_analysis(cached_analysis)
+        
         # Get basic repository data
         repo_data = {
             'name': repo.name,
@@ -202,6 +257,13 @@ REASON: <your explanation>"""
         # Add LLM analysis
         llm_analysis = self.analyze_with_llm(repo_data)
         repo_data.update(llm_analysis)
+        
+        # Cache the analysis results if enabled
+        if self.caching_enabled:
+            cache_key = self._generate_analysis_cache_key(repo.full_name)
+            serialized_analysis = self._serialize_analysis(repo_data)
+            # Cache for 1 hour
+            self.cache.set(cache_key, serialized_analysis, time=3600)
         
         return repo_data
 
@@ -290,7 +352,7 @@ REASON: <your explanation>"""
     def browse_repositories(self, repositories: List[Repository]) -> List[Dict]:
         """
         Step 2: Browse through matched repositories to get detailed information including READMEs.
-        Now includes LLM analysis for AI relevance.
+        Now includes LLM analysis for AI relevance and caching support.
         
         Args:
             repositories (List[Repository]): List of repositories to analyze in detail
