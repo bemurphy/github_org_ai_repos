@@ -20,3 +20,4 @@ Using:
 3. Ability to run repository names, descriptions, and README through an LLM to check if the repository is AI related. Generate a confidence score 1-5.
 4. Output matched repositories in a markdown report, with the repo name, url, description, and confidence score provided
     4.1 Sort the repositories by confidence descending, alpha ascending
+    4.2 Allow a runtime flag, --min-confidence, to optionally filter out repositories that are below the minimum confidence level.

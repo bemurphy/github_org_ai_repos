@@ -9,6 +9,7 @@ import base64
 import json
 import hashlib
 import memcache
+import argparse
 from dotenv import load_dotenv
 from litellm import completion
 from datetime import datetime
@@ -373,17 +374,21 @@ REASON: <your explanation>"""
         print("\nDetailed analysis complete!")
         return detailed_results
 
-    def generate_markdown_report(self, org_name: str, detailed_results: List[Dict]) -> str:
+    def generate_markdown_report(self, org_name: str, detailed_results: List[Dict], min_confidence: int = 0) -> str:
         """
         Generate a markdown report of the analysis results.
         
         Args:
             org_name (str): Name of the GitHub organization
             detailed_results (List[Dict]): List of repository analysis results
+            min_confidence (int, optional): Minimum confidence score to include (0-5). Defaults to 0.
             
         Returns:
             str: Markdown formatted report
         """
+        # Filter results based on minimum confidence
+        filtered_results = [repo for repo in detailed_results if repo['confidence_score'] >= min_confidence]
+        
         # Start with report header
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         report = f"""# AI Repository Analysis Report
@@ -391,15 +396,17 @@ REASON: <your explanation>"""
 Generated on: {now}
 
 This report analyzes repositories for AI/ML/LLM-related content and provides confidence scores.
+Minimum confidence threshold: {min_confidence}/5
 
 ## Analysis Summary
 Total repositories analyzed: {len(detailed_results)}
+Repositories meeting confidence threshold: {len(filtered_results)}
 
 ### Confidence Score Distribution:
 """
         # Calculate confidence score distribution
         score_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 0: 0}  # Include 0 for errors
-        for repo in detailed_results:
+        for repo in filtered_results:  # Only count filtered results
             score_distribution[repo['confidence_score']] += 1
         
         # Add distribution to report
@@ -416,6 +423,10 @@ Total repositories analyzed: {len(detailed_results)}
             if score_distribution[score] > 0:
                 report += f"- {confidence_labels[score]}: {score_distribution[score]} repositories\n"
         
+        if not filtered_results:
+            report += "\nNo repositories meet the minimum confidence threshold.\n"
+            return report
+            
         report += "\n## Detailed Analysis\n\n"
         
         # Sort repositories by multiple criteria:
@@ -433,7 +444,7 @@ Total repositories analyzed: {len(detailed_results)}
                 repo['name'].lower()        # Alphabetical by name
             )
         
-        sorted_results = sorted(detailed_results, key=sort_key)
+        sorted_results = sorted(filtered_results, key=sort_key)  # Sort filtered results
         
         # Group repositories by confidence score for better organization
         current_score = None
@@ -447,14 +458,6 @@ Total repositories analyzed: {len(detailed_results)}
             # Create status badges
             status_badge = "🟢 Active" if not repo['is_archived'] else "🔒 Archived"
             readme_badge = "📘 README" if repo['has_readme'] else "❌ No README"
-            confidence_emoji = {
-                5: "🟣",  # Definitely AI-related
-                4: "🔵",  # Likely AI-related
-                3: "🟡",  # Possibly AI-related
-                2: "🟠",  # Probably not AI-related
-                1: "🔴",  # Definitely not AI-related
-                0: "⚪️"   # Error/Unknown
-            }.get(repo['confidence_score'], "⚪️")
             
             # Format last updated date for better readability
             last_updated = datetime.fromisoformat(repo['last_updated']).strftime("%Y-%m-%d") if repo['last_updated'] else "Unknown"
@@ -474,6 +477,12 @@ Total repositories analyzed: {len(detailed_results)}
         return report
 
 def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='GitHub Organization AI Repository Scanner')
+    parser.add_argument('--min-confidence', type=int, choices=range(0, 6), default=0,
+                      help='Minimum confidence score (0-5) for including repositories in the report')
+    args = parser.parse_args()
+
     # Example usage - no token needed for public data
     scanner = GithubOrgScanner()
     org_name = "DataDog"  # Using DataDog as specified in instructions
@@ -499,8 +508,8 @@ def main():
     print(f"Analyzing {len(repos_to_analyze)} repositories...")
     detailed_results = scanner.browse_repositories(repos_to_analyze)
     
-    # Generate markdown report
-    report = scanner.generate_markdown_report(org_name, detailed_results)
+    # Generate markdown report with minimum confidence filter
+    report = scanner.generate_markdown_report(org_name, detailed_results, args.min_confidence)
     
     # Create reports directory if it doesn't exist
     os.makedirs('reports', exist_ok=True)
@@ -513,7 +522,9 @@ def main():
     
     # Also print results to console for immediate viewing
     print(f"\nAnalyzed {len(detailed_results)} repositories in detail:")
-    for repo in detailed_results:
+    # Only show repositories that meet the minimum confidence threshold
+    filtered_results = [repo for repo in detailed_results if repo['confidence_score'] >= args.min_confidence]
+    for repo in filtered_results:
         print(f"\nRepository: {repo['name']}")
         print(f"Description: {repo['description']}")
         print(f"URL: {repo['url']}")
