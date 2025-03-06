@@ -50,7 +50,7 @@ The scanner generates detailed markdown reports analyzing repositories for AI-re
 - 1 repository rated "Possibly AI-related" (3/5):
   - `sketches-dotnet`: Quantile sketch algorithm implementation
 
-Reports include confidence scores, repository details, and analysis reasoning. [View full sample report](datadog_sample_report.md).
+Reports include confidence scores, repository details, and analysis reasoning. View sample reports from [DataDog](datadog_sample_report.md) and [Shopify](shopify_sample_report.md).
 
 ## Usage
 
