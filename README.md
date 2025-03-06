@@ -23,22 +23,26 @@ Reports include confidence scores, repository details, and analysis reasoning. [
    ```bash
    pip install -r requirements.txt
    ```
-3. (Optional) Set up a GitHub token for higher API rate limits:
+3. Set up your OpenAI API key:
+   - Create a `.env` file and add: `OPENAI_API_KEY=your_api_key_here`
+   - Or set it as an environment variable
+4. (Optional) Set up a GitHub token for higher API rate limits:
    - If you need to scan many repositories, you might want to create a [GitHub Personal Access Token](https://github.com/settings/tokens) (no special permissions needed - public data access only)
    - Either:
-     - Create a `.env` file and add: `GITHUB_TOKEN=your_token_here`
+     - Add to your `.env` file: `GITHUB_TOKEN=your_token_here`
      - Or pass the token directly when creating the scanner
 
 ## Environment Variables
 
 The following environment variables can be configured in your `.env` file:
 
+- `OPENAI_API_KEY`: Your OpenAI API key (required unless using a different model provider)
 - `GITHUB_TOKEN`: Your GitHub Personal Access Token (optional)
 - `ENABLE_CACHING`: Set to "true" to enable caching of results using memcached (default: "false")
 - `LLM_MODEL`: The LLM model to use for repository analysis (default: "gpt-4o-mini")
   - Examples:
     ```env
-    # OpenAI models
+    # OpenAI models (requires OPENAI_API_KEY)
     LLM_MODEL=gpt-4o-mini
     
     # Ollama models
