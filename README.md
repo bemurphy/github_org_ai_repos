@@ -15,6 +15,25 @@ This tool helps you scan GitHub organizations to find repositories related to AI
      - Create a `.env` file and add: `GITHUB_TOKEN=your_token_here`
      - Or pass the token directly when creating the scanner
 
+## Environment Variables
+
+The following environment variables can be configured in your `.env` file:
+
+- `GITHUB_TOKEN`: Your GitHub Personal Access Token (optional)
+- `ENABLE_CACHING`: Set to "true" to enable caching of results using memcached (default: "false")
+- `LLM_MODEL`: The LLM model to use for repository analysis (default: "gpt-4o-mini")
+  - Examples:
+    ```env
+    # OpenAI models
+    LLM_MODEL=gpt-4o-mini
+    
+    # Ollama models
+    LLM_MODEL=ollama/llama2
+    
+    # Google models
+    LLM_MODEL=gemini-2.0-flash
+    ```
+
 ## Usage
 
 ```python

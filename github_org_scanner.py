@@ -10,6 +10,7 @@ import json
 import hashlib
 import memcache
 import argparse
+import textwrap
 from dotenv import load_dotenv
 from litellm import completion
 from datetime import datetime
@@ -23,8 +24,9 @@ class GithubOrgScanner:
             github_token (str, optional): GitHub personal access token. Optional since we only access public data.
                                         If provided, it will allow for higher API rate limits.
         """
+        load_dotenv()  # Load environment variables first
+        
         if github_token is None:
-            load_dotenv()
             github_token = os.getenv('GITHUB_TOKEN')
             
         # Initialize without token if none provided - will use unauthenticated access
@@ -38,6 +40,10 @@ class GithubOrgScanner:
         else:
             self.cache = None
             print("Caching disabled")
+            
+        # Get LLM model configuration
+        self.llm_model = os.getenv('LLM_MODEL', 'gpt-4o-mini')
+        print(f"Using LLM model: {self.llm_model}")
 
     def _generate_cache_key(self, org_name: str, keywords: List[str]) -> str:
         """
@@ -146,28 +152,30 @@ class GithubOrgScanner:
             Dict: Analysis results including confidence score (1-5) and reasoning
         """
         # Construct the prompt
-        prompt = f"""Analyze this GitHub repository and determine if it's related to AI/ML/LLM technology.
-Repository Name: {repo_data['name']}
-Description: {repo_data['description']}
+        prompt = textwrap.dedent(f"""
+            Analyze this GitHub repository and determine if it's related to AI/ML/LLM technology.
+            Repository Name: {repo_data['name']}
+            Description: {repo_data['description']}
 
-README excerpt (first 1000 chars):
-{repo_data['readme'][:1000]}
+            README excerpt (first 1000 chars):
+            {repo_data['readme'][:1000]}
 
-Rate on a scale of 1-5 how confident you are that this repository is AI-related:
-1 = Definitely not AI-related
-2 = Probably not AI-related
-3 = Possibly AI-related
-4 = Likely AI-related
-5 = Definitely AI-related
+            Rate on a scale of 1-5 how confident you are that this repository is AI-related:
+            1 = Definitely not AI-related
+            2 = Probably not AI-related
+            3 = Possibly AI-related
+            4 = Likely AI-related
+            5 = Definitely AI-related
 
-Provide your rating and a brief explanation in the following format exactly:
-RATING: <number>
-REASON: <your explanation>"""
+            Provide your rating and a brief explanation in the following format exactly:
+            RATING: <number>
+            REASON: <your explanation>
+            """).strip()
 
         try:
-            # Call LiteLLM
+            # Call LiteLLM with configured model
             response = completion(
-                model="gpt-4o-mini",
+                model=self.llm_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0
             )
