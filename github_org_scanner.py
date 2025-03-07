@@ -500,7 +500,7 @@ def main():
 
     # Example usage - no token needed for public data
     scanner = GithubOrgScanner()
-    keywords = ["llm", "ai", "gpt", "machine learning"]
+    keywords = ["llm", "ai", "gpt", "agent", "agentic", "machine learning"]
     
     # Step 1: Search for repositories by name and description (now with caching)
     matching_repos = scanner.search_org_repos(args.org_name, keywords)
