@@ -326,7 +326,7 @@ class GithubOrgScanner:
                 for repo in repos_paginated:
                     repos_analyzed += 1
                     # Show progress
-                    print(f"\rChecking {repo.name} ({repos_analyzed}/{total_repos})", end="", flush=True)
+                    print(f"\rChecking {repo.name} ({repos_analyzed}/{total_repos})\033[K", end="", flush=True)
                     
                     # Only check name and description for initial search
                     repo_name = repo.name.lower()
@@ -378,7 +378,7 @@ class GithubOrgScanner:
         print(f"\nAnalyzing {total_repos} matched repositories in detail...")
         
         for i, repo in enumerate(repositories, 1):
-            print(f"\rAnalyzing {repo.name} ({i}/{total_repos})", end="", flush=True)
+            print(f"\rAnalyzing {repo.name} ({i}/{total_repos})\033[K", end="", flush=True)
             analysis = self.analyze_repository(repo)
             detailed_results.append(analysis)
         
