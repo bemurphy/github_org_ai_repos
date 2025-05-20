@@ -61,7 +61,7 @@ Running the script directly:
 python github_org_scanner.py --org-name openai
 
 # With optional runtime flags
-python github_org_scanner.py --org-name datadog --min-confidence 3 --max-repositories 20
+python github_org_scanner.py --org-name datadog --min-confidence 3 --max-repositories 20 --include-archived
 ```
 
 ### Runtime Flags
@@ -80,6 +80,8 @@ python github_org_scanner.py --org-name datadog --min-confidence 3 --max-reposit
 - `--max-repositories`: Limit the number of repositories to analyze
   - Default: Analyze all matching repositories
   - Example: `--max-repositories 10` will analyze at most 10 repositories
+- `--include-archived`: Include archived repositories in processing and output
+  - Default: Archived repositories are skipped
 
 ### Using as a Module
 
