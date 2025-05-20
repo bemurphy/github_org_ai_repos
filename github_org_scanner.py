@@ -279,7 +279,7 @@ class GithubOrgScanner:
         
         return repo_data
 
-    def search_org_repos(self, org_name: str, keywords: List[str]) -> List[Repository]:
+    def search_org_repos(self, org_name: str, keywords: List[str], include_archived_repos: bool = False) -> List[Repository]:
         """
         Search for public repositories in an organization that match given keywords.
         Now with caching support if enabled via ENABLE_CACHING environment variable.
@@ -287,17 +287,20 @@ class GithubOrgScanner:
         Args:
             org_name (str): Name of the GitHub organization
             keywords (List[str]): List of keywords to search for
+            include_archived_repos (bool): Whether to include archived repositories. Defaults to False.
             
         Returns:
             List[Repository]: List of matching repository objects
         """
         # Check cache if enabled
         if self.caching_enabled:
-            cache_key = self._generate_cache_key(org_name, keywords)
+            # Note: The cache key currently does NOT factor in 'include_archived_repos'.
+            # This means cached results might not reflect the include_archived_repos setting if it changed recently.
+            cache_key = self._generate_cache_key(org_name, keywords) 
             cached_results = self.cache.get(cache_key)
             
             if cached_results:
-                print("Found results in cache")
+                print("Found results in cache (Note: cache does not currently distinguish based on --include-archived flag).")
                 # Deserialize and return cached results
                 return [self._deserialize_repo(repo_data) for repo_data in cached_results]
         
@@ -316,17 +319,27 @@ class GithubOrgScanner:
                 return []
             
             try:
-                # Get paginated repository list
-                repos_paginated = org.get_repos(type='public')
-                total_repos = repos_paginated.totalCount
-                print(f"Found {total_repos} public repositories in {org_name}")
-                print("\nSearching repositories...")
+                # Get all public repository objects
+                all_public_repos_paginated = org.get_repos(type='public')
+                all_public_repos = list(all_public_repos_paginated) # Convert to list for easier counting and filtering
+                
+                # Filter out archived repositories if not requested
+                if not include_archived_repos:
+                    processed_repos = [repo for repo in all_public_repos if not repo.archived]
+                    excluded_count = len(all_public_repos) - len(processed_repos)
+                    print(f"Found {len(all_public_repos)} public repositories in {org_name}. Excluding {excluded_count} archived repositories.")
+                else:
+                    processed_repos = all_public_repos
+                    print(f"Found {len(all_public_repos)} public repositories in {org_name}. Including archived repositories as requested.")
+
+                total_repos_to_scan = len(processed_repos)
+                print(f"\nSearching {total_repos_to_scan} repositories for keywords...")
                 
                 repos_analyzed = 0
-                for repo in repos_paginated:
+                for repo in processed_repos: # Iterate over the potentially filtered list
                     repos_analyzed += 1
                     # Show progress
-                    print(f"\rChecking {repo.name} ({repos_analyzed}/{total_repos})\033[K", end="", flush=True)
+                    print(f"\rChecking {repo.name} ({repos_analyzed}/{total_repos_to_scan})\033[K", end="", flush=True)
                     
                     # Only check name and description for initial search
                     repo_name = repo.name.lower()
@@ -385,7 +398,7 @@ class GithubOrgScanner:
         print("\nDetailed analysis complete!")
         return detailed_results
 
-    def generate_markdown_report(self, org_name: str, detailed_results: List[Dict], min_confidence: int = 0) -> str:
+    def generate_markdown_report(self, org_name: str, detailed_results: List[Dict], min_confidence: int = 0, archived_included: bool = False) -> str:
         """
         Generate a markdown report of the analysis results.
         
@@ -393,6 +406,7 @@ class GithubOrgScanner:
             org_name (str): Name of the GitHub organization
             detailed_results (List[Dict]): List of repository analysis results
             min_confidence (int, optional): Minimum confidence score to include (0-5). Defaults to 0.
+            archived_included (bool): Whether archived repositories were included in the scan. Defaults to False.
             
         Returns:
             str: Markdown formatted report
@@ -400,11 +414,15 @@ class GithubOrgScanner:
         # Filter results based on minimum confidence
         filtered_results = [repo for repo in detailed_results if repo['confidence_score'] >= min_confidence]
         
+        # Determine archived status text
+        archived_status_text = "Included in scan" if archived_included else "Excluded from scan"
+        
         # Start with report header
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         report = f"""# AI Repository Analysis Report
 ## Organization: {org_name}
 Generated on: {now}
+Archived repositories: {archived_status_text}
 
 This report analyzes repositories for AI/ML/LLM-related content and provides confidence scores.
 Minimum confidence threshold: {min_confidence}/5
@@ -496,6 +514,8 @@ def main():
                       help='Minimum confidence score (0-5) for including repositories in the report')
     parser.add_argument('--max-repositories', type=int,
                       help='Maximum number of repositories to analyze in detail (analyze all if not specified)')
+    parser.add_argument('--include-archived', action='store_true', default=False,
+                        help='Include archived repositories in the scan (default: False)')
     args = parser.parse_args()
 
     # Example usage - no token needed for public data
@@ -503,8 +523,13 @@ def main():
     keywords = ["llm", "ai", "gpt", "agent", "agentic", "machine learning"]
     
     # Step 1: Search for repositories by name and description (now with caching)
-    matching_repos = scanner.search_org_repos(args.org_name, keywords)
-    print(f"\nFound {len(matching_repos)} potentially relevant repositories")
+    # Pass the include_archived argument from CLI args
+    matching_repos = scanner.search_org_repos(
+        args.org_name,
+        keywords,
+        include_archived_repos=args.include_archived
+    )
+    print(f"\nFound {len(matching_repos)} potentially relevant repositories after filtering and keyword search.")
     
     # Step 2: Get detailed information including READMEs for matched repositories
     # Only limit repositories if max_repositories is explicitly set
@@ -529,7 +554,12 @@ def main():
     detailed_results = scanner.browse_repositories(repos_to_analyze)
     
     # Generate markdown report with minimum confidence filter
-    report = scanner.generate_markdown_report(args.org_name, detailed_results, args.min_confidence)
+    report = scanner.generate_markdown_report(
+        args.org_name,
+        detailed_results,
+        args.min_confidence,
+        archived_included=args.include_archived
+    )
     
     # Create reports directory if it doesn't exist
     os.makedirs('reports', exist_ok=True)
